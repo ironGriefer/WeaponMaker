@@ -5,6 +5,8 @@ weapon = [
 ]
 '''
 
+from asyncio import constants
+import math
 import os
 import random
 import time
@@ -13,97 +15,86 @@ import shutil
 import json
 import roman
 from PIL import Image
-import regex as re
-def jsonDict2NBTText(jsonDict):
+import re
+def toNBT(jsonDict):
     jsonStr = json.dumps(jsonDict, separators=(',', ':'))
-    return re.sub(r'"(\w+)"\s*:', lambda n:re.sub(r'"','', n.group()), jsonStr)
+    temp = re.sub(r'"(\w+)"\s*:', lambda n:re.sub(r'"','', n.group()), jsonStr)
+    re.sub(r'[\\][\"]', '', temp)
+    re.sub(r'[\"][\\]', '', temp)
+    re.sub(r'[\\][\"]', '', temp)
+    re.sub(r'[\"][f][a][l][s][e][\"]', 'DAVID2', temp) ##i litterally have no clue how to use regex m.n
+    return re.sub(r'[\:][\"][t][r][u][e][\"]', 'JACOB2', temp)
+    
 template = r"template"
 dest_a = r""
 iconpath = r"resources/icon.ico"
 
 
-def addToTable(table, value):
-    newtable = table.copy()
-
-    newtable.append(value)
-    return newtable
-
-class JAWGAttribute:
-    def __init__(self, attribute, amount="1", operation="amount", slot="mainhand"):
-        self.attribute = attribute
-        self.amount = amount
-        self.operation = operation
-        self.slot = slot
-
-def JAWGKey(string):
-    return string
-
-class JAWGEnchantment:
-    def __init__(self, enchantment, lvl=1, display="uhasfhhdjsfjhlsdffdhdfhfghdfa343w4asd"):
-        if display == "uhasfhhdjsfjhlsdffdhdfhfghdfa343w4asd":
-            self.display = enchantment
-        else:
-            self.display = display
-        self.enchantment = enchantment
-        self.lvl = lvl
+class Operation:
+    Amount = 0
+    Percentage = 1
+    Multiplicative = 2
+    
 
 
-class JAWGText:
-    def connecter(self, text, arg):
+class bool:
+    def __init__(self, bool):
+        self.data = None
+        if bool == True:
+            self.data = "true"
+        if bool == False:
+            self.data = "false" ##TODO when i do the string parser thingym, make this work with it.
 
-        prop = {
-            "text": text,
-            "italic": "false",
-            "color":"white"
+        
+class Attribute:
+    def getRandomUUID(self):
+        ##TODO please help i have no fricking clue how to make UUIDs god help me
+        return [random.randrange(-999999999, 999999999),random.randrange(-999999999, 999999999),random.randrange(-999999999, 999999999),random.randrange(-999999999, 999999999)]
+    def __init__(self, attribute, amount=1, slot='mainhand',operation=1,displayName=None):
+        self.data = {
+            "AttributeName":attribute,
+            "Name":attribute,
+            "Amount":amount,
+            "Slot":slot,
+            "Operation":operation,
+            "UUID":self.getRandomUUID() ##TODO the actual format is [I;-424044772,753420940,-1259457086,1257445437], while this is just [-424044772,753420940,-1259457086,1257445437], need to add that I; to the beginning
         }
-        for iterate in arg.keys():
-            prop[iterate] = str(arg[iterate]).lower()
-        self.data = "'" + json.dumps(prop) + "'"
+        
+class Text:
+    def __init__(self,text = "you forgot to put text bozo", italics = False, bold = False, underline = False, strikethrough = False, color="white"):
+        if text == None:
+            return
+        italics = bool(italics)
+        bold = bool(bold)
+        underline = bool(underline)
+        strikethrough = bool(strikethrough)
 
-    def update(self, text, **kwargs):
-        self.connecter(text, kwargs)
+        self.data = {"\"text\"":text}
+        self.data["\"italics\""] = italics.data
+        self.data["\"bold\""] = bold.data
+        self.data["\"underline\""] = underline.data ##TODO make a condense function, for example, underline = false is not nessasary because underline is false by default.
+        self.data["\"strikethrough\""] = strikethrough.data
+        self.data["\"color\""] = color
 
-    def __init__(self, text, **kwargs):
-        self.connecter(text, kwargs)
-
-class JAWGMultiLine:
-    def connecter(self, table, arg):
-
-        prop = {
-            "text": text,
-            "italic": "false",
-            "color":"white"
-        }
-        for iterate in arg.keys():
-            prop[iterate] = str(arg[iterate]).lower()
-        self.data = json.dumps(prop)
-
-    def update(self, text, **kwargs):
-        self.connecter(text, kwargs)
-
-    def __init__(self, text, **kwargs):
-        self.connecter(text, kwargs)
-
-
-class JAWGItem:
-    def __init__(self,
-                 base_item="",
-                 name=JAWGText(""),
-                 lore=[[JAWGText("This is on line "), JAWGText("one",bold="true")],
-                       [JAWGText("this is on line "), JAWGText("two",italics="true",color="red")]],
-                 count=1,
-                 enchantments=[],
-                 attributes=[],
-                 data=[]):
-        self.base_item = base_item
+class Item:
+    def __init__(self, item="golden_sword", name=Text(), lore=[], enchantments=[], attributes=[], count=1, data={}):
+        self.item = item
         self.name = name
         self.lore = lore
-        self.count = count
-        self.enchantments = enchantments
         self.attributes = attributes
+        self.enchantments = enchantments ## almost forgot to add this lol
+        self.count = count
         self.data = data
+        self.nbt = {
+            "display":{
+                "Name": name.data,
+                "Lore":lore
+            },
+            "HideFlags":127
+        }
 
-        translations = {
+        ##TAKE CARE OF ATTRIBUTES
+        attribute_translations = {
             "max_health": "Max Health",
             "follow_range": "Mob Follow Range",
             "knockback_resistance": "Knockback Resistance",
@@ -114,78 +105,30 @@ class JAWGItem:
             "attack_speed": "Attack Speed",
             "luck": "Luck"
         }
-        def getTranslation(phrase):
-            try:
-                d = translations[phrase]
-                return d
-            except:
-                return phrase
-
-        if "minecraft:" not in self.base_item:
-            base_item = "minecraft:" + self.base_item
-        data.append("HideFlags:127")
-        for enchant in enchantments:
-            loreaddon = JAWGText(enchant.display.capitalize() + " " + roman.toRoman(int(enchant.lvl)),color="gray")
-            self.lore.append([loreaddon])
-        slots = {}
-
-        for attribute in attributes:
-            if attribute.slot not in slots:
-                slots[attribute.slot] = []
-            slots[attribute.slot] = addToTable(slots[attribute.slot], attribute)
-        loreaddon = []
-        for key in slots:
-            loreaddon.append(JAWGText(("When on " + key.capitalize() + ":"),color="gray"))
-            for value in slots[key]:
-                loreaddon.append(JAWGText("+" + value.amount + " " + getTranslation(value.attribute),color="blue"))
-        for i in loreaddon:
-            lore.append([i])
-    def interprted(self):
-        lorecomponent = ""
-        display = {
-                "Name":self.name.data,
-                "Lore":[]
+        hand_translations = {
+            "mainhand": "Main Hand",
+            "offhand": "Off hand",
+            "feet": "Feet",
+            "legs": "Legs",
+            "chest": "Body",
+            "head": "Head",
         }
-        exlorecomp = {
-            "display":display,
-            "Enchantments" : []
+        loreaddon = None
+        if attributes != []:
+            self.nbt["AttributeModifiers"] = []
+            for attribute in attributes:
+                self.nbt["AttributeModifiers"].append(attribute.data)
+                self.nbt["display"]["Lore"].append([Text(text="When on ",color='gray').data, Text(text=hand_translations[attribute.data['Slot']], color='gray').data])
+                   
+        
+        
+        
+        ##self.nbt = self.nbt | data ##TODO merging of dictonarys is too greedy so i disabled it
 
-        }
-        #print(exlorecomp[JAWGKey("display")]["Lore"])
-        #temptable = []
-        for line in self.lore:
+        
 
-            exlorecomp[JAWGKey("display")]["Lore"] = addToTable(exlorecomp[JAWGKey("display")]["Lore"],line)
-            index = 0
-            for section in line:
-                e = section.data
-                line[index] = e
-                index = index + 1
-        for line in self.lore:
-            line = str(line)
-
-
-
-        print(exlorecomp)
-        self.json = json.dumps(exlorecomp)
-        self.json = self.json.replace('"',"")
-        self.json = self.json.replace("\\", '"')
-
-        print(self.json)
-
-
-
-        return self.json
-
-
-
-
-
-
-
-e = JAWGItem("golden_sword", name=JAWGText("avds sword",color="blue"), enchantments=[JAWGEnchantment("sharpness", "13", "COOL")], attributes=[JAWGAttribute(attribute="max_health",slot="head"),JAWGAttribute(attribute="max_healeth",slot="legs"),JAWGAttribute(attribute="max_fhealth",slot="legs"),JAWGAttribute(attribute="maxe_health",slot="head")])
-print(e.interprted())
-
+item = Item(item="diamond_sword",name=Text("this is a constructer"),data={"display":{"Name":{"text":"This is data"}}})
+print(toNBT(item.nbt))
 
 def cloneDatapack():
     shutil.copytree(os.path.join(template, dest_a, "Weapons"))

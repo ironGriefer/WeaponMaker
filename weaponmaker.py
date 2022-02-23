@@ -13,17 +13,19 @@ import time
 import PySimpleGUI as sg
 import shutil
 import json
+from numpy import true_divide
 import roman
 from PIL import Image
 import re
 def toNBT(jsonDict):
     jsonStr = json.dumps(jsonDict, separators=(',', ':'))
     temp = re.sub(r'"(\w+)"\s*:', lambda n:re.sub(r'"','', n.group()), jsonStr)
-    re.sub(r'[\\][\"]', '', temp)
-    re.sub(r'[\"][\\]', '', temp)
-    re.sub(r'[\\][\"]', '', temp)
-    re.sub(r'[\"][f][a][l][s][e][\"]', 'DAVID2', temp) ##i litterally have no clue how to use regex m.n
-    return re.sub(r'[\:][\"][t][r][u][e][\"]', 'JACOB2', temp)
+    temp = re.sub(r'[\\][\"]', '', temp)
+    temp = re.sub(r'[\"][\\]', '', temp)
+    temp = re.sub(r'[\\][\"]', '', temp)
+    temp = re.sub(r'[\"][t][r][u][e][\"]', 'true', temp)
+    return re.sub(r'[\"][f][a][l][s][e][\"]', 'false', temp) ##i litterally have no clue how to use regex m.n
+    
     
 template = r"template"
 dest_a = r""
@@ -119,7 +121,9 @@ class Item:
             for attribute in attributes:
                 self.nbt["AttributeModifiers"].append(attribute.data)
                 self.nbt["display"]["Lore"].append([Text(text="When on ",color='gray').data, Text(text=hand_translations[attribute.data['Slot']], color='gray').data])
-                   
+        
+        ##Cleaner funtion, gets rid of usless/empty values
+        
         
         
         
@@ -127,7 +131,7 @@ class Item:
 
         
 
-item = Item(item="diamond_sword",name=Text("this is a constructer"),data={"display":{"Name":{"text":"This is data"}}})
+item = Item(item="diamond_sword",name=Text(text="this is a constructer",underline=True),data={"display":{"Name":{"text":"This is data"}}})
 print(toNBT(item.nbt))
 
 def cloneDatapack():

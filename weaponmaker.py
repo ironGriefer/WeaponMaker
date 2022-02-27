@@ -13,18 +13,38 @@ import time
 import PySimpleGUI as sg
 import shutil
 import json
-from numpy import true_divide
+
 import roman
 from PIL import Image
 import re
+
+
 def toNBT(jsonDict):
+    def goDeeper(dicte, path): 
+        for entry in dicte.items():
+            if isinstance(entry[1], Text):
+                print(path)
+                temp = jsonDict
+                for item in path:
+                    temp = temp[item]
+                dicte[path] = '\'' + str(entry.data) + '\''
+                
+                return
+            if type(entry[1]) is dict:
+            
+                newpath = path.append(entry[0])
+                goDeeper(entry[1], newpath)
+                return
+            
+    goDeeper(jsonDict, [])
+    print(jsonDict['display'])
     jsonStr = json.dumps(jsonDict, separators=(',', ':'))
     temp = re.sub(r'"(\w+)"\s*:', lambda n:re.sub(r'"','', n.group()), jsonStr)
     temp = re.sub(r'[\\][\"]', '', temp)
     temp = re.sub(r'[\"][\\]', '', temp)
     temp = re.sub(r'[\\][\"]', '', temp)
     temp = re.sub(r'[\"][t][r][u][e][\"]', 'true', temp)
-    return re.sub(r'[\"][f][a][l][s][e][\"]', 'false', temp) ##i litterally have no clue how to use regex m.n
+    return re.sub(r'[\"][f][a][l][s][e][\"]', 'false', temp) ##i litterally have no clue how to use regex
     
     
 template = r"template"
@@ -89,7 +109,7 @@ class Item:
         self.data = data
         self.nbt = {
             "display":{
-                "Name": name.data,
+                "Name": name,
                 "Lore":lore
             },
             "HideFlags":127
